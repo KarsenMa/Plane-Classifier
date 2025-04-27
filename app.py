@@ -55,11 +55,9 @@ if uploaded_file:
 
     st.image(output_image, caption="Detected Plane", use_container_width=True)
 
-    st.markdown(f"### ✈️ Prediction: **{label}**")
-    st.markdown(f"**Confidence:** {confidence * 100:.2f}%")
+    if label == "No plane detected":
+        st.warning("⚠️ No plane detected in the uploaded image.")
+    else:
+        st.markdown(f"### ✈️ Prediction: **{label}**")
+        st.markdown(f"**Confidence:** {confidence * 100:.2f}%")
 
-
-    label, confidence = classify_image(image)
-
-    st.markdown(f"### ✈️ Prediction: **{label}**")
-    st.markdown(f"**Confidence:** {confidence * 100:.2f}%")
