@@ -35,32 +35,17 @@ def classify_image(image):
 
     return label, confidence, image
 
-# Function to classify video frames
-def classify_video(video_path, frame_skip=5):
-    temp_output = tempfile.NamedTemporaryFile(delete=False, suffix='.avi')
-    output_path = temp_output.name
-
+# Function to classify video frames and display them
+def classify_video_frames(video_path, frame_skip=5):
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         st.error("Failed to open input video.")
-        return None, 0
-
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    if fps == 0 or fps is None:
-        fps = 25  # fallback fps
-
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')  # .avi with XVID codec
-    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-
-    if not out.isOpened():
-        st.error("Failed to create output video writer.")
-        return None, 0
+        return 0
 
     frame_count = 0
-    processed_count = 0
+    displayed_frames = 0
+
+    st_frame = st.empty()  # Placeholder for displaying frames
 
     while True:
         ret, frame = cap.read()
@@ -73,24 +58,19 @@ def classify_video(video_path, frame_skip=5):
 
             label, confidence, _ = classify_image(image)
 
-            # Draw label on the RGB frame
+            # Draw label on the frame
             cv2.putText(frame_rgb, f"{label} ({confidence*100:.1f}%)", (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
-            # Convert back RGB ➔ BGR after drawing
-            frame_labeled = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+            # Display frame
+            st_frame.image(frame_rgb, channels="RGB", caption=f"{label} ({confidence*100:.1f}%)")
 
-            out.write(frame_labeled)  # Write the labeled frame
-            processed_count += 1
-        else:
-            out.write(frame)  # Write skipped frames unmodified
+            displayed_frames += 1
 
         frame_count += 1
 
     cap.release()
-    out.release()
-
-    return output_path, processed_count
+    return displayed_frames
 
 # Streamlit UI
 st.title("✈️ Plane Classifier")
@@ -124,14 +104,8 @@ if uploaded_file:
         tfile = tempfile.NamedTemporaryFile(delete=False)
         tfile.write(uploaded_file.read())
 
-        st.video(tfile.name)
+        with st.spinner('Processing video frames...'):
+            total_displayed = classify_video_frames(tfile.name, frame_skip=frame_skip)
 
-        with st.spinner('Processing video...'):
-            result = classify_video(tfile.name, frame_skip=frame_skip)
+        st.success(f"✅ Displayed {total_displayed} labeled frames!")
 
-        if result:
-            processed_video_path, total_processed = result
-            st.success(f"✅ Processed {total_processed} labeled frames!")
-            st.video(processed_video_path)
-        else:
-            st.error("Failed to process video.")
