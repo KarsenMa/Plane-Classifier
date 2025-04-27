@@ -73,13 +73,18 @@ def classify_video(video_path, frame_skip=5):
 
             label, confidence, _ = classify_image(image)
 
-            # Draw label on the frame
-            cv2.putText(frame, f"{label} ({confidence*100:.1f}%)", (10, 30),
+            # Draw label on the RGB frame
+            cv2.putText(frame_rgb, f"{label} ({confidence*100:.1f}%)", (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
-            processed_count += 1
+            # Convert back RGB ➔ BGR after drawing
+            frame_labeled = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
 
-        out.write(frame)
+            out.write(frame_labeled)  # Write the labeled frame
+            processed_count += 1
+        else:
+            out.write(frame)  # Write skipped frames unmodified
+
         frame_count += 1
 
     cap.release()
@@ -130,4 +135,3 @@ if uploaded_file:
             st.video(processed_video_path)
         else:
             st.error("Failed to process video.")
-
