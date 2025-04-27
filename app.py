@@ -3,6 +3,7 @@ from ultralytics import YOLO
 from PIL import Image
 import tempfile
 import cv2
+import time
 
 # Configure Streamlit page
 st.set_page_config(page_title="Plane Classifier",
@@ -74,6 +75,7 @@ st.write("Upload an image or a video of a plane!")
 
 # Frame skip control in sidebar
 frame_skip = st.sidebar.slider("Frame Skip (Video)", 1, 30, 5)
+playback_speed = st.sidebar.slider("Playback Speed (frames/sec)", 1, 60, 5)
 
 uploaded_file = st.file_uploader(
     "Choose a file...", type=["jpg", "jpeg", "png", "mp4", "avi", "mov"])
@@ -106,9 +108,13 @@ if uploaded_file:
         if labeled_frames:
             st.success(f"✅ Processed {len(labeled_frames)} frames!")
 
-            frame_index = st.slider('Slide through frames:', 0, len(labeled_frames)-1, 0)
-            frame_image, frame_label, frame_confidence = labeled_frames[frame_index]
+            frame_display = st.empty()  # Placeholder to update frames
+            play_button = st.button("▶️ Play Slideshow")
 
-            st.image(frame_image, caption=f"{frame_label} ({frame_confidence*100:.1f}%)", use_container_width=True)
-        else:
-            st.error("No frames processed.")
+            if play_button:
+                while True:
+                    for idx, (frame_image, frame_label, frame_confidence) in enumerate(labeled_frames):
+                        frame_display.image(frame_image, caption=f"{frame_label} ({frame_confidence*100:.1f}%)", use_container_width=True)
+                        time.sleep(1 / playback_speed)
+
+                    # After reaching end, loop again automatically
