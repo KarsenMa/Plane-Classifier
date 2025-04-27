@@ -36,7 +36,6 @@ def classify_image(image):
 
     return label, confidence, image
 
-# Function to classify video frames
 def classify_video(video_path, frame_skip=5):
     temp_output = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
     output_path = temp_output.name
@@ -64,20 +63,27 @@ def classify_video(video_path, frame_skip=5):
 
             label, confidence, _ = classify_image(image)
 
-            # Draw label on frame
-            cv2.putText(frame, f"{label} ({confidence*100:.1f}%)", (10, 30),
+            # Draw label on the RGB frame
+            cv2.putText(frame_rgb, f"{label} ({confidence*100:.1f}%)", (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
-            processed_count += 1
+            # Convert frame back to BGR before writing
+            frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
 
-        # Write EVERY frame (with or without label)
-        out.write(frame)
+            out.write(frame_bgr)
+
+            processed_count += 1
+        else:
+            # Even skipped frames must be written (unchanged)
+            out.write(frame)
+
         frame_count += 1
 
     cap.release()
     out.release()
 
     return output_path, processed_count
+
 
 # Streamlit UI
 st.title("✈️ Plane Classifier")
