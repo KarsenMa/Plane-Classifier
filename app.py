@@ -109,7 +109,7 @@ if uploaded_file:
             st.success(f"✅ Processed {len(labeled_frames)} frames!")
 
             frame_display = st.empty()  # Placeholder to update frames
-            play_button = st.button("▶️ Play Slideshow")
+            play_button = st.button("▶️ Play Video")
 
             if play_button:
                 while True:
