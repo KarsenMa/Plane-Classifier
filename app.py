@@ -24,7 +24,8 @@ def classify_image(image):
     boxes = results[0].boxes
 
     if boxes is None or len(boxes) == 0:
-        return "No plane detected", 0.0, image  # Return original if no detection
+        # Make sure you return three things: label, confidence, image
+        return "No plane detected", 0.0, image
 
     cls_id = int(boxes.cls[0].item())
     confidence = float(boxes.conf[0].item())
@@ -37,6 +38,7 @@ def classify_image(image):
     draw.text((box[0], box[1] - 10), f"{label} {confidence*100:.1f}%", fill="red")
 
     return label, confidence, image
+
 
 # Streamlit UI
 st.title("✈️ Plane Classifier")
