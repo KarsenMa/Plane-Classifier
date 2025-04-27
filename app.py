@@ -29,54 +29,58 @@ def classify_image(image):
     if probs is None:
         return "No plane detected", 0.0, image
 
-    # Get the class with the highest probability
     top1_id = int(probs.data.argmax())
     confidence = float(probs.data[top1_id])
     label = CLASS_NAMES[top1_id]
 
     return label, confidence, image
 
+# Function to classify video frames
 def classify_video(video_path, frame_skip=5):
     temp_output = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
     output_path = temp_output.name
 
     cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        st.error("Failed to open video.")
+        return None, 0
+
     fps = cap.get(cv2.CAP_PROP_FPS)
-    width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    if fps == 0 or fps is None:
+        fps = 25  # fallback if missing
+
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fourcc = cv2.VideoWriter_fourcc(*'avc1')  # Good codec for mp4
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+    if not out.isOpened():
+        st.error("Failed to create output video writer.")
+        return None, 0
 
     frame_count = 0
     processed_count = 0
 
-    while cap.isOpened():
+    while True:
         ret, frame = cap.read()
         if not ret:
             break
 
         if frame_count % frame_skip == 0:
-            # Only classify and draw every `frame_skip` frames
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             image = Image.fromarray(frame_rgb)
 
             label, confidence, _ = classify_image(image)
 
-            # Draw label on the RGB frame
-            cv2.putText(frame_rgb, f"{label} ({confidence*100:.1f}%)", (10, 30),
+            # Draw label on the frame
+            cv2.putText(frame, f"{label} ({confidence*100:.1f}%)", (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
-            # Convert frame back to BGR before writing
-            frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
-
-            out.write(frame_bgr)
-
             processed_count += 1
-        else:
-            # Even skipped frames must be written (unchanged)
-            out.write(frame)
 
+        # Always write the frame (whether modified or not)
+        out.write(frame)
         frame_count += 1
 
     cap.release()
@@ -84,12 +88,11 @@ def classify_video(video_path, frame_skip=5):
 
     return output_path, processed_count
 
-
 # Streamlit UI
 st.title("✈️ Plane Classifier")
 st.write("Upload an image or a video of a plane!")
 
-# Frame skip selector (optional in sidebar)
+# Frame skip control in sidebar
 frame_skip = st.sidebar.slider("Frame Skip (Video)", 1, 30, 5)
 
 uploaded_file = st.file_uploader(
@@ -100,7 +103,7 @@ if uploaded_file:
 
     if file_type.startswith('image'):
         image = Image.open(uploaded_file).convert("RGB")
-        
+
         with st.spinner('Classifying image...'):
             label, confidence, output_image = classify_image(image)
 
@@ -113,15 +116,18 @@ if uploaded_file:
             st.markdown(f"**Confidence:** {confidence * 100:.2f}%")
 
     elif file_type.startswith('video'):
-        # Save the uploaded video temporarily
+        # Save uploaded video temporarily
         tfile = tempfile.NamedTemporaryFile(delete=False)
         tfile.write(uploaded_file.read())
 
         st.video(tfile.name)
 
         with st.spinner('Processing video...'):
-            processed_video_path, total_processed = classify_video(tfile.name, frame_skip=frame_skip)
+            result = classify_video(tfile.name, frame_skip=frame_skip)
 
-        st.success(f"✅ Processed {total_processed} labeled frames out of total video frames!")
-
-        st.video(processed_video_path)
+        if result:
+            processed_video_path, total_processed = result
+            st.success(f"✅ Processed {total_processed} labeled frames!")
+            st.video(processed_video_path)
+        else:
+            st.error("Failed to process video.")
