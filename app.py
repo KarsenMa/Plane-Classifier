@@ -37,22 +37,22 @@ def classify_image(image):
 
 # Function to classify video frames
 def classify_video(video_path, frame_skip=5):
-    temp_output = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+    temp_output = tempfile.NamedTemporaryFile(delete=False, suffix='.avi')
     output_path = temp_output.name
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        st.error("Failed to open video.")
+        st.error("Failed to open input video.")
         return None, 0
 
     fps = cap.get(cv2.CAP_PROP_FPS)
     if fps == 0 or fps is None:
-        fps = 25  # fallback if missing
+        fps = 25  # fallback fps
 
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    fourcc = cv2.VideoWriter_fourcc(*'avc1')  # Good codec for mp4
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')  # .avi with XVID codec
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
     if not out.isOpened():
@@ -79,7 +79,6 @@ def classify_video(video_path, frame_skip=5):
 
             processed_count += 1
 
-        # Always write the frame (whether modified or not)
         out.write(frame)
         frame_count += 1
 
@@ -131,3 +130,4 @@ if uploaded_file:
             st.video(processed_video_path)
         else:
             st.error("Failed to process video.")
+
