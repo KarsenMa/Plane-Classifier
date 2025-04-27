@@ -3,7 +3,6 @@ from ultralytics import YOLO
 from PIL import Image
 import tempfile
 import cv2
-import os
 
 # Configure Streamlit page
 st.set_page_config(page_title="Plane Classifier",
@@ -35,17 +34,15 @@ def classify_image(image):
 
     return label, confidence, image
 
-# Function to classify video frames and display them
+# Function to classify video frames and collect them
 def classify_video_frames(video_path, frame_skip=5):
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         st.error("Failed to open input video.")
-        return 0
+        return []
 
     frame_count = 0
-    displayed_frames = 0
-
-    st_frame = st.empty()  # Placeholder for displaying frames
+    labeled_frames = []
 
     while True:
         ret, frame = cap.read()
@@ -58,19 +55,18 @@ def classify_video_frames(video_path, frame_skip=5):
 
             label, confidence, _ = classify_image(image)
 
-            # Draw label on the frame
+            # Draw label on frame
             cv2.putText(frame_rgb, f"{label} ({confidence*100:.1f}%)", (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
-            # Display frame
-            st_frame.image(frame_rgb, channels="RGB", caption=f"{label} ({confidence*100:.1f}%)")
-
-            displayed_frames += 1
+            # Convert back to PIL image for display
+            frame_pil = Image.fromarray(frame_rgb)
+            labeled_frames.append((frame_pil, label, confidence))
 
         frame_count += 1
 
     cap.release()
-    return displayed_frames
+    return labeled_frames
 
 # Streamlit UI
 st.title("✈️ Plane Classifier")
@@ -105,7 +101,14 @@ if uploaded_file:
         tfile.write(uploaded_file.read())
 
         with st.spinner('Processing video frames...'):
-            total_displayed = classify_video_frames(tfile.name, frame_skip=frame_skip)
+            labeled_frames = classify_video_frames(tfile.name, frame_skip=frame_skip)
 
-        st.success(f"✅ Displayed {total_displayed} labeled frames!")
+        if labeled_frames:
+            st.success(f"✅ Processed {len(labeled_frames)} frames!")
 
+            frame_index = st.slider('Slide through frames:', 0, len(labeled_frames)-1, 0)
+            frame_image, frame_label, frame_confidence = labeled_frames[frame_index]
+
+            st.image(frame_image, caption=f"{frame_label} ({frame_confidence*100:.1f}%)", use_container_width=True)
+        else:
+            st.error("No frames processed.")
