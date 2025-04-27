@@ -1,6 +1,6 @@
 import streamlit as st
 from ultralytics import YOLO
-from PIL import Image, ImageDraw
+from PIL import Image
 import tempfile
 import cv2
 import os
@@ -36,8 +36,8 @@ def classify_image(image):
 
     return label, confidence, image
 
-# Function to classify video
-def classify_video(video_path):
+# Function to classify video frames
+def classify_video(video_path, frame_skip=5):
     temp_output = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
     output_path = temp_output.name
 
@@ -50,34 +50,41 @@ def classify_video(video_path):
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
     frame_count = 0
+    processed_count = 0
 
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
 
-        # Convert frame to PIL Image
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        image = Image.fromarray(frame_rgb)
+        if frame_count % frame_skip == 0:
+            # Only classify and draw every `frame_skip` frames
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            image = Image.fromarray(frame_rgb)
 
-        # Classify frame
-        label, confidence, _ = classify_image(image)
+            label, confidence, _ = classify_image(image)
 
-        # Draw label on frame
-        cv2.putText(frame, f"{label} ({confidence*100:.1f}%)", (10, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+            # Draw label on frame
+            cv2.putText(frame, f"{label} ({confidence*100:.1f}%)", (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
+            processed_count += 1
+
+        # Write EVERY frame (with or without label)
         out.write(frame)
         frame_count += 1
 
     cap.release()
     out.release()
 
-    return output_path, frame_count
+    return output_path, processed_count
 
 # Streamlit UI
 st.title("✈️ Plane Classifier")
 st.write("Upload an image or a video of a plane!")
+
+# Frame skip selector (optional in sidebar)
+frame_skip = st.sidebar.slider("Frame Skip (Video)", 1, 30, 5)
 
 uploaded_file = st.file_uploader(
     "Choose a file...", type=["jpg", "jpeg", "png", "mp4", "avi", "mov"])
@@ -107,11 +114,8 @@ if uploaded_file:
         st.video(tfile.name)
 
         with st.spinner('Processing video...'):
-            processed_video_path, total_frames = classify_video(tfile.name)
+            processed_video_path, total_processed = classify_video(tfile.name, frame_skip=frame_skip)
 
-        st.success(f"✅ Processed {total_frames} frames!")
+        st.success(f"✅ Processed {total_processed} labeled frames out of total video frames!")
 
         st.video(processed_video_path)
-
-
-
