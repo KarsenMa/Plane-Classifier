@@ -1,38 +1,44 @@
 import streamlit as st
 from ultralytics import YOLO
-from PIL import Image
+from PIL import Image, ImageDraw
 
-# Load your YOLOv8 classification model
+# Configure Streamlit page
 st.set_page_config(page_title="Plane Classifier",
                    page_icon="✈️", layout="centered")
 
-
+# Load YOLO model
 @st.cache_resource
 def load_model():
-    model = YOLO("best.pt")  # Make sure 'best.pt' is in the same folder
+    model = YOLO("best.pt")  # Make sure 'best.pt' is uploaded
     return model
-
 
 model = load_model()
 
-# Class names (update this if you have your own)
-# model.names is a dictionary: {0: 'Boeing 747', 1: 'F-16', ...}
+# Class names
 CLASS_NAMES = model.names
 
-# Define image classification function
-
-
+# Function to classify image and draw bounding box
 def classify_image(image):
     results = model.predict(image)
-    top1_id = int(results[0].probs.top1)
-    confidence = float(results[0].probs.top1conf)
-    label = CLASS_NAMES[top1_id]
-    return label, confidence
+    
+    boxes = results[0].boxes
 
+    if boxes is None or len(boxes) == 0:
+        return "No plane detected", 0.0, image  # Return original if no detection
+
+    cls_id = int(boxes.cls[0].item())
+    confidence = float(boxes.conf[0].item())
+    label = CLASS_NAMES[cls_id]
+
+    # Draw bounding box
+    box = boxes.xyxy[0].tolist()  # (x1, y1, x2, y2)
+    draw = ImageDraw.Draw(image)
+    draw.rectangle(box, outline="red", width=5)
+    draw.text((box[0], box[1] - 10), f"{label} {confidence*100:.1f}%", fill="red")
+
+    return label, confidence, image
 
 # Streamlit UI
-# st.set_page_config(page_title="Plane Classifier",
-#                    page_icon="✈️", layout="centered")
 st.title("✈️ Plane Classifier")
 st.write("Upload an image of a plane and see what model it is!")
 
@@ -41,7 +47,15 @@ uploaded_file = st.file_uploader(
 
 if uploaded_file:
     image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, caption="Uploaded Image", use_container_width=True)
+    
+    with st.spinner('Classifying...'):
+        label, confidence, output_image = classify_image(image)
+
+    st.image(output_image, caption="Detected Plane", use_container_width=True)
+
+    st.markdown(f"### ✈️ Prediction: **{label}**")
+    st.markdown(f"**Confidence:** {confidence * 100:.2f}%")
+
 
     label, confidence = classify_image(image)
 
